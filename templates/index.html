@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════
+     KPI CARD
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow mb-3 kpi-card {% if per_day > 30 %}kpi-good{% elif per_day > 0 %}kpi-warning{% else %}kpi-bad{% endif %}">
+  <div class="card-body text-center text-white py-4">
+    <div class="kpi-number">€{{ "%.2f"|format(per_day) }}</div>
+    <div class="kpi-label">per day</div>
+    <div class="kpi-sub mt-2">
+      <span class="me-3"><i class="bi bi-calendar3"></i> {{ days }} days until 25th</span>
+      <span><i class="bi bi-wallet2"></i> €{{ "%.2f"|format(remaining) }} remaining</span>
+    </div>
+    <div class="kpi-month mt-1">{{ today.strftime('%B %Y') }}</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     BALANCE UPDATE
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header section-header">
+    <i class="bi bi-bank2 text-primary"></i> Account Balance
+  </div>
+  <div class="card-body">
+    <form method="POST" action="/update-balance">
+      <div class="row g-2 align-items-end">
+        <div class="col-5">
+          <label class="form-label small text-muted mb-1">עו"ש — Balance</label>
+          <input type="number" step="0.01" class="form-control" name="balance"
+                 value="{{ balance }}" placeholder="0.00" />
+        </div>
+        <div class="col-5">
+          <label class="form-label small text-muted mb-1">עו"ש עתידי — Future</label>
+          <input type="number" step="0.01" class="form-control" name="future"
+                 value="{{ future }}" placeholder="0.00" />
+        </div>
+        <div class="col-2">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-lg"></i>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     INCOME
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-arrow-down-circle-fill text-success"></i> Income</span>
+    {% if income_pending_total %}
+      <span class="badge bg-success fs-6">+€{{ "%.2f"|format(income_pending_total) }}</span>
+    {% endif %}
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for item in income_items %}
+      <li class="list-group-item d-flex justify-content-between align-items-center
+                 {% if item.is_cleared %}cleared-item{% endif %}">
+        <div>
+          <span class="item-name" dir="rtl">{{ item.name }}</span>
+          <span class="item-name-en text-muted small ms-1">{{ item.name_en }}</span>
+          {% if item.is_cleared %}
+            <span class="badge bg-secondary ms-1">received ✓</span>
+          {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold {% if not item.is_cleared %}text-success{% endif %}">
+            {% if item.amount %}+€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
+          </span>
+          <form method="POST"
+                action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
+                class="d-inline">
+            <button type="submit"
+                    class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
+                    title="{{ 'Undo' if item.is_cleared else 'Mark as received' }}">
+              <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
+            </button>
+          </form>
+        </div>
+      </li>
+    {% else %}
+      <li class="list-group-item text-center text-muted py-3">
+        No items yet — do a <a href="/month-reset">month reset</a> first.
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     EXPENSES
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-arrow-up-circle-fill text-danger"></i> Expenses</span>
+    {% if expense_pending_total %}
+      <span class="badge bg-danger fs-6">-€{{ "%.2f"|format(expense_pending_total) }}</span>
+    {% endif %}
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for item in expense_items %}
+      <li class="list-group-item d-flex justify-content-between align-items-center
+                 {% if item.is_cleared %}cleared-item{% endif %}">
+        <div>
+          <span class="item-name" dir="rtl">{{ item.name }}</span>
+          <span class="item-name-en text-muted small ms-1">{{ item.name_en }}</span>
+          {% if item.debit_day and not item.is_cleared %}
+            <span class="badge bg-light text-dark border ms-1">{{ item.debit_day }}th</span>
+          {% endif %}
+          {% if item.is_cleared %}
+            <span class="badge bg-secondary ms-1">debited ✓</span>
+          {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold {% if not item.is_cleared %}text-danger{% endif %}">
+            {% if item.amount %}-€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
+          </span>
+          <form method="POST"
+                action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
+                class="d-inline">
+            <button type="submit"
+                    class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-danger{% endif %}"
+                    title="{{ 'Undo' if item.is_cleared else 'Mark as appeared in bank' }}">
+              <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
+            </button>
+          </form>
+        </div>
+      </li>
+    {% else %}
+      <li class="list-group-item text-center text-muted py-3">
+        No items yet — do a <a href="/month-reset">month reset</a> first.
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PENDING DEBIT TRANSACTIONS (G/H columns)
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clock-history text-warning"></i> Pending Debits</span>
+    {% if pending_total %}
+      <span class="badge bg-warning text-dark fs-6">-€{{ "%.2f"|format(pending_total) }}</span>
+    {% endif %}
+  </div>
+
+  {% if pending_transactions %}
+    <ul class="list-group list-group-flush">
+      {% for pt in pending_transactions %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ pt.name }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold text-danger">-€{{ "%.2f"|format(pt.amount) }}</span>
+            <form method="POST" action="/delete-pending/{{ pt.id }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-success"
+                      title="Appeared in bank — remove">
+                <i class="bi bi-check-circle"></i>
+              </button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <!-- Add new pending transaction -->
+  <div class="card-body {% if pending_transactions %}border-top{% endif %} pt-2">
+    <form method="POST" action="/add-pending" class="row g-2 align-items-center">
+      <div class="col-5">
+        <input type="text" class="form-control form-control-sm" name="name"
+               placeholder="e.g. Amazon" />
+      </div>
+      <div class="col-4">
+        <input type="number" step="0.01" class="form-control form-control-sm" name="amount"
+               placeholder="€ amount" />
+      </div>
+      <div class="col-3">
+        <button type="submit" class="btn btn-warning btn-sm w-100">
+          <i class="bi bi-plus-lg"></i> Add
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SUMMARY FOOTER
+════════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="text-muted mb-2">Formula breakdown</h6>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">Balance + Future</span>
+      <span>€{{ "%.2f"|format(balance + future) }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">+ Expected income</span>
+      <span class="text-success">+€{{ "%.2f"|format(income_pending_total) }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">− Upcoming expenses</span>
+      <span class="text-danger">-€{{ "%.2f"|format(expense_pending_total) }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">− Pending debits</span>
+      <span class="text-danger">-€{{ "%.2f"|format(pending_total) }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">− Savings / girls' money</span>
+      <span class="text-secondary">-€{{ "%.2f"|format(savings_ignore + girls_money) }}</span>
+    </div>
+    <hr class="my-1" />
+    <div class="d-flex justify-content-between fw-bold">
+      <span>= Remaining</span>
+      <span class="{% if remaining >= 0 %}text-success{% else %}text-danger{% endif %}">
+        €{{ "%.2f"|format(remaining) }}
+      </span>
+    </div>
+    <div class="d-flex justify-content-between fw-bold mt-1">
+      <span>÷ {{ days }} days = per day</span>
+      <span class="{% if per_day >= 0 %}text-success{% else %}text-danger{% endif %}">
+        €{{ "%.2f"|format(per_day) }}
+      </span>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

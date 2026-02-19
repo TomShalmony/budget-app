@@ -1,0 +1,33 @@
+/* ── KPI Card ────────────────────────────────── */
+.kpi-card        { border-radius: 16px !important; }
+.kpi-good        { background: linear-gradient(135deg, #198754, #20c997); }
+.kpi-warning     { background: linear-gradient(135deg, #fd7e14, #ffc107); }
+.kpi-bad         { background: linear-gradient(135deg, #dc3545, #c2185b); }
+
+.kpi-number      { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; }
+.kpi-label       { font-size: 1.1rem; opacity: 0.85; }
+.kpi-sub         { font-size: 0.9rem; opacity: 0.8; }
+.kpi-month       { font-size: 0.8rem; opacity: 0.65; }
+
+/* ── Section headers ─────────────────────────── */
+.section-header  { font-weight: 600; background: #fff; font-size: 0.95rem; }
+
+/* ── Cleared items ───────────────────────────── */
+.cleared-item    { opacity: 0.45; text-decoration: line-through; }
+.cleared-item .badge { text-decoration: none; }
+
+/* ── Item names ──────────────────────────────── */
+.item-name       { font-weight: 500; }
+.item-name-en    { font-size: 0.78rem; }
+
+/* ── Navbar ──────────────────────────────────── */
+.navbar          { box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+/* ── Cards ───────────────────────────────────── */
+.card            { border-radius: 12px !important; }
+
+/* ── Mobile tweaks ───────────────────────────── */
+@media (max-width: 400px) {
+  .kpi-number    { font-size: 2.8rem; }
+  .item-name-en  { display: none; }
+}

@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% set title = 'Settings' %}
+{% block content %}
+
+<form method="POST" action="/settings">
+
+  <!-- Account settings -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header section-header">
+      <i class="bi bi-sliders text-secondary"></i> Account Settings
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">
+            Savings to ignore
+            <span class="text-muted small d-block">בעו"ש לא להתייחס (B32)</span>
+          </label>
+          <div class="input-group">
+            <span class="input-group-text">€</span>
+            <input type="number" step="0.01" class="form-control" name="savings_ignore"
+                   value="{{ savings_ignore }}" />
+          </div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">
+            Girls' earmarked money
+            <span class="text-muted small d-block">של הבנות (B33)</span>
+          </label>
+          <div class="input-group">
+            <span class="input-group-text">€</span>
+            <input type="number" step="0.01" class="form-control" name="girls_money"
+                   value="{{ girls_money }}" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template amounts -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header section-header">
+      <i class="bi bi-table text-secondary"></i> Monthly Template (Column C)
+    </div>
+    <p class="text-muted small px-3 pt-2 mb-0">
+      These are your default amounts copied on the 25th of each month.
+      Leave blank for variable items (salary, CAF…).
+      Girls' food is always auto-calculated.
+    </p>
+    <ul class="list-group list-group-flush mt-2">
+      {% for t in templates %}
+        <li class="list-group-item py-2">
+          <div class="row g-2 align-items-center">
+            <div class="col-5">
+              <div dir="rtl" class="fw-semibold">{{ t.name }}</div>
+              <div class="text-muted small">{{ t.name_en }}</div>
+            </div>
+            <div class="col-4">
+              {% if t.name == 'אוכל בנות' %}
+                <input type="text" class="form-control form-control-sm" disabled
+                       placeholder="auto-calculated" />
+              {% else %}
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">€</span>
+                  <input type="number" step="0.01" class="form-control form-control-sm"
+                         name="amount_{{ t.id }}"
+                         value="{{ t.amount if t.amount is not none else '' }}"
+                         placeholder="variable" />
+                </div>
+              {% endif %}
+            </div>
+            <div class="col-3">
+              <div class="input-group input-group-sm">
+                <input type="number" min="1" max="31" class="form-control form-control-sm"
+                       name="day_{{ t.id }}"
+                       value="{{ t.debit_day if t.debit_day is not none else '' }}"
+                       placeholder="day" />
+                <span class="input-group-text">th</span>
+              </div>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100 mb-4">
+    <i class="bi bi-save"></i> Save Settings
+  </button>
+</form>
+
+{% endblock %}
