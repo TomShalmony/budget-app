@@ -291,14 +291,15 @@ def index():
     income_items         = conn.execute("SELECT * FROM current_expenses WHERE is_income=1 ORDER BY sort_order").fetchall()
     expense_items        = conn.execute("SELECT * FROM current_expenses WHERE is_income=0 ORDER BY sort_order").fetchall()
     pending_transactions = conn.execute("SELECT * FROM pending_transactions ORDER BY created_at DESC").fetchall()
+    s = {r['key']: float(r['value']) for r in conn.execute("SELECT key, value FROM settings").fetchall()}
     conn.close()
 
-    balance                 = get_setting('balance')
-    future                  = get_setting('future')
-    savings_ignore          = get_setting('savings_ignore')
-    savings_ignore_at_reset = get_setting('savings_ignore_at_reset')
-    girls_shachar           = get_setting('girls_shachar')
-    girls_yaara             = get_setting('girls_yaara')
+    balance                 = s.get('balance', 0.0)
+    future                  = s.get('future', 0.0)
+    savings_ignore          = s.get('savings_ignore', 0.0)
+    savings_ignore_at_reset = s.get('savings_ignore_at_reset', 0.0)
+    girls_shachar           = s.get('girls_shachar', 0.0)
+    girls_yaara             = s.get('girls_yaara', 0.0)
     girls_total             = girls_shachar + girls_yaara
 
     remaining = compute_remaining(balance, future, savings_ignore, girls_total,
@@ -330,10 +331,13 @@ def index():
 @app.route('/update-balance', methods=['POST'])
 @login_required
 def update_balance():
+    conn = get_db()
     for key in ('balance', 'future', 'savings_ignore'):
         val = request.form.get(key, '').strip()
         if val:
-            set_setting(key, float(val))
+            conn.upsert_setting(key, float(val))
+    conn.commit()
+    conn.close()
     return redirect(url_for('index'))
 
 
@@ -489,13 +493,14 @@ def savings():
 
     conn = get_db()
     savings_items = conn.execute("SELECT * FROM savings ORDER BY sort_order").fetchall()
+    s = {r['key']: float(r['value']) for r in conn.execute("SELECT key, value FROM settings").fetchall()}
     conn.close()
 
     return render_template('savings.html',
         savings_items=savings_items,
         savings_total=sum(s['amount'] for s in savings_items),
-        girls_shachar=get_setting('girls_shachar'),
-        girls_yaara=get_setting('girls_yaara'),
+        girls_shachar=s.get('girls_shachar', 0.0),
+        girls_yaara=s.get('girls_yaara', 0.0),
     )
 
 
