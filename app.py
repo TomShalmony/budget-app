@@ -245,15 +245,16 @@ def init_db():
                 (item['name'], item['amount'], item['sort_order'])
             )
 
-    # Migrations (safe to run repeatedly)
-    for col_sql in [
-        "ALTER TABLE expense_template ADD COLUMN is_variable INTEGER DEFAULT 0",
-        "ALTER TABLE current_expenses ADD COLUMN is_variable INTEGER DEFAULT 0",
-    ]:
-        try:
-            db.execute(col_sql)
-        except Exception:
-            pass
+    # Migrations for existing SQLite databases (not needed for fresh PostgreSQL)
+    if not USE_POSTGRES:
+        for col_sql in [
+            "ALTER TABLE expense_template ADD COLUMN is_variable INTEGER DEFAULT 0",
+            "ALTER TABLE current_expenses ADD COLUMN is_variable INTEGER DEFAULT 0",
+        ]:
+            try:
+                db.execute(col_sql)
+            except Exception:
+                pass
 
     db.commit()
     db.close()
