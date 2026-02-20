@@ -6,6 +6,82 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from school_calendar import calculate_girls_food, calculate_days_until_25
 
+# ---------------------------------------------------------------------------
+# Database — SQLite in Codespace (dev), PostgreSQL on Render (production).
+# Set DATABASE_URL env var to switch to PostgreSQL.
+# ---------------------------------------------------------------------------
+DATABASE_URL  = os.environ.get('DATABASE_URL', '')
+DATABASE_PATH = os.environ.get('DATABASE_PATH', 'budget.db')
+USE_POSTGRES  = bool(DATABASE_URL)
+
+
+class DB:
+    """Thin wrapper that gives sqlite3 and psycopg2 a unified interface."""
+
+    def __init__(self):
+        if USE_POSTGRES:
+            import psycopg2
+            import psycopg2.extras
+            self._conn   = psycopg2.connect(DATABASE_URL,
+                               cursor_factory=psycopg2.extras.RealDictCursor)
+            self._cursor = self._conn.cursor()
+        else:
+            self._conn   = sqlite3.connect(DATABASE_PATH)
+            self._conn.row_factory = sqlite3.Row
+            self._cursor = None   # sqlite3 uses conn.execute() shorthand
+        self._last = None
+
+    def execute(self, sql, params=()):
+        if USE_POSTGRES:
+            sql = sql.replace('?', '%s')
+            self._cursor.execute(sql, params)
+            self._last = self._cursor
+        else:
+            self._last = self._conn.execute(sql, params)
+        return self
+
+    def fetchone(self):
+        return self._last.fetchone() if self._last else None
+
+    def fetchall(self):
+        return self._last.fetchall() if self._last else []
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+    # -- Helpers for INSERT OR REPLACE / INSERT OR IGNORE ----------------
+
+    def upsert_setting(self, key, value):
+        """Insert or update a row in the settings table."""
+        if USE_POSTGRES:
+            self.execute(
+                "INSERT INTO settings (key, value) VALUES (%s, %s) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                (key, float(value))
+            )
+        else:
+            self.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                (key, float(value))
+            )
+
+    def insert_ignore_setting(self, key, value):
+        """Insert a setting only if it doesn't already exist."""
+        if USE_POSTGRES:
+            self.execute(
+                "INSERT INTO settings (key, value) VALUES (%s, %s) "
+                "ON CONFLICT (key) DO NOTHING",
+                (key, float(value))
+            )
+        else:
+            self.execute(
+                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                (key, float(value))
+            )
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
@@ -36,8 +112,6 @@ def login():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
-DATABASE = os.environ.get('DATABASE_PATH', 'budget.db')
-
 # ---------------------------------------------------------------------------
 # Template — mirrors Column C of the Excel sheet "מתגלגל"
 # is_variable=1 → amount is entered manually at each month reset
@@ -70,26 +144,40 @@ SAVINGS_ITEMS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Database
+# Database helpers
 # ---------------------------------------------------------------------------
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return DB()
+
+
+def get_setting(key, default=0.0):
+    db = get_db()
+    row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    db.close()
+    return float(row['value']) if row else default
+
+
+def set_setting(key, value):
+    db = get_db()
+    db.upsert_setting(key, value)
+    db.commit()
+    db.close()
 
 
 def init_db():
-    conn = get_db()
-    c = conn.cursor()
+    db = get_db()
 
-    c.execute('''CREATE TABLE IF NOT EXISTS settings (
+    # Primary key syntax differs between SQLite and PostgreSQL
+    PK = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+    db.execute(f'''CREATE TABLE IF NOT EXISTS settings (
         key   TEXT PRIMARY KEY,
         value REAL NOT NULL DEFAULT 0
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS expense_template (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    db.execute(f'''CREATE TABLE IF NOT EXISTS expense_template (
+        id          {PK},
         name        TEXT NOT NULL,
         name_en     TEXT,
         amount      REAL,
@@ -99,8 +187,8 @@ def init_db():
         sort_order  INTEGER DEFAULT 0
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS current_expenses (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    db.execute(f'''CREATE TABLE IF NOT EXISTS current_expenses (
+        id          {PK},
         template_id INTEGER,
         name        TEXT NOT NULL,
         name_en     TEXT,
@@ -112,15 +200,15 @@ def init_db():
         sort_order  INTEGER DEFAULT 0
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS pending_transactions (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    db.execute(f'''CREATE TABLE IF NOT EXISTS pending_transactions (
+        id         {PK},
         name       TEXT NOT NULL,
         amount     REAL NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS savings (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    db.execute(f'''CREATE TABLE IF NOT EXISTS savings (
+        id         {PK},
         name       TEXT NOT NULL,
         amount     REAL DEFAULT 0,
         sort_order INTEGER DEFAULT 0
@@ -131,15 +219,17 @@ def init_db():
         ('balance', 0.0),
         ('future', 0.0),
         ('savings_ignore', 8700.0),
-        ('savings_ignore_at_reset', 8700.0),  # frozen value from last reset
+        ('savings_ignore_at_reset', 8700.0),
         ('girls_shachar', 500.0),
         ('girls_yaara', 500.0),
     ]:
-        c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        db.insert_ignore_setting(key, value)
 
-    if c.execute("SELECT COUNT(*) FROM expense_template").fetchone()[0] == 0:
+    # Seed expense template if empty
+    count = db.execute("SELECT COUNT(*) as n FROM expense_template").fetchone()
+    if (count['n'] if USE_POSTGRES else count[0]) == 0:
         for item in EXPENSE_TEMPLATE:
-            c.execute(
+            db.execute(
                 "INSERT INTO expense_template "
                 "(name, name_en, amount, debit_day, is_income, is_variable, sort_order) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -147,37 +237,27 @@ def init_db():
                  item['is_income'], item['is_variable'], item['sort_order'])
             )
 
-    if c.execute("SELECT COUNT(*) FROM savings").fetchone()[0] == 0:
+    # Seed savings if empty
+    count = db.execute("SELECT COUNT(*) as n FROM savings").fetchone()
+    if (count['n'] if USE_POSTGRES else count[0]) == 0:
         for item in SAVINGS_ITEMS:
-            c.execute("INSERT INTO savings (name, amount, sort_order) VALUES (?, ?, ?)",
-                      (item['name'], item['amount'], item['sort_order']))
+            db.execute(
+                "INSERT INTO savings (name, amount, sort_order) VALUES (?, ?, ?)",
+                (item['name'], item['amount'], item['sort_order'])
+            )
 
-    # Migration: add is_variable column if it doesn't exist yet
-    try:
-        c.execute("ALTER TABLE expense_template ADD COLUMN is_variable INTEGER DEFAULT 0")
-        c.execute("ALTER TABLE current_expenses ADD COLUMN is_variable INTEGER DEFAULT 0")
-    except Exception:
-        pass  # column already exists
+    # Migrations (safe to run repeatedly)
+    for col_sql in [
+        "ALTER TABLE expense_template ADD COLUMN is_variable INTEGER DEFAULT 0",
+        "ALTER TABLE current_expenses ADD COLUMN is_variable INTEGER DEFAULT 0",
+    ]:
+        try:
+            db.execute(col_sql)
+        except Exception:
+            pass
 
-    # Migration: add savings_ignore_at_reset if it doesn't exist yet
-    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('savings_ignore_at_reset', 8700.0)")
-
-    conn.commit()
-    conn.close()
-
-
-def get_setting(key, default=0.0):
-    conn = get_db()
-    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-    conn.close()
-    return float(row['value']) if row else default
-
-
-def set_setting(key, value):
-    conn = get_db()
-    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, float(value)))
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
 
 
 def compute_remaining(balance, future, savings_ignore, girls_total,
@@ -397,13 +477,11 @@ def savings():
                 conn.execute("UPDATE savings SET amount=? WHERE id=?", (amount, sid))
                 row = conn.execute("SELECT name FROM savings WHERE id=?", (sid,)).fetchone()
                 if row and row['name'] == 'בתוך העו"ש':
-                    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                                 ('savings_ignore', amount))
+                    conn.upsert_setting('savings_ignore', amount)
         for key in ('girls_shachar', 'girls_yaara'):
             val = request.form.get(key, '').strip()
             if val:
-                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                             (key, float(val)))
+                conn.upsert_setting(key, float(val))
         conn.commit()
         conn.close()
         flash('Savings updated!', 'success')
