@@ -4,7 +4,7 @@
 <!-- ═══════════════════════════════════════════════════
      KPI CARD
 ════════════════════════════════════════════════════ -->
-<div class="card border-0 shadow mb-3 kpi-card {% if per_day > 30 %}kpi-good{% elif per_day > 0 %}kpi-warning{% else %}kpi-bad{% endif %}">
+<div class="card border-0 shadow mb-3 kpi-card {% if per_day > 50 %}kpi-good{% elif per_day >= 35 %}kpi-warning{% else %}kpi-bad{% endif %}">
   <div class="card-body text-center text-white py-4">
     <div class="kpi-number">€{{ "%.2f"|format(per_day) }}</div>
     <div class="kpi-label">per day</div>
