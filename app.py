@@ -260,15 +260,15 @@ def init_db():
     db.close()
 
 
-def compute_remaining(balance, future, savings_ignore, girls_total,
+def compute_remaining(balance, future, savings_ignore,
                       income_items, expense_items, pending_transactions):
     """Replicates Excel formula: SUM(B2:B10) - SUM(B12:B32)
     Conservative rounding: income floored, expenses ceiled, result floored.
-    Girls' money deducted separately from savings_ignore."""
+    savings_ignore already includes girls' money."""
     income_sum  = sum(math.floor(r['amount']) for r in income_items  if not r['is_cleared'] and r['amount'])
     expense_sum = sum(math.ceil(r['amount'])  for r in expense_items if not r['is_cleared'] and r['amount'])
     pending_sum = sum(math.ceil(r['amount'])  for r in pending_transactions)
-    raw = balance + future + income_sum - expense_sum - pending_sum - savings_ignore - girls_total
+    raw = balance + future + income_sum - expense_sum - pending_sum - savings_ignore
     return math.floor(raw)
 
 
@@ -302,7 +302,7 @@ def index():
     girls_yaara             = s.get('girls_yaara', 0.0)
     girls_total             = girls_shachar + girls_yaara
 
-    remaining = compute_remaining(balance, future, savings_ignore, girls_total,
+    remaining = compute_remaining(balance, future, savings_ignore,
                                   income_items, expense_items, pending_transactions)
     days    = calculate_days_until_25()
     per_day = math.floor(remaining / days) if days > 0 else 0

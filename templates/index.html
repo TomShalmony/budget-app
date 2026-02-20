@@ -272,12 +272,11 @@
       <span class="text-danger" dir="ltr">-€{{ "%.2f"|format(pending_total) }}</span>
     </div>
     <div class="d-flex justify-content-between small">
-      <span class="text-muted">− בעו"ש לא להתייחס</span>
+      <span class="text-muted">
+        − בעו"ש לא להתייחס
+        <span style="font-size:0.8rem">(שחר €{{ girls_shachar|int }} + יערה €{{ girls_yaara|int }})</span>
+      </span>
       <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(savings_ignore) }}</span>
-    </div>
-    <div class="d-flex justify-content-between small">
-      <span class="text-muted">− של הבנות (שחר €{{ girls_shachar|int }} + יערה €{{ girls_yaara|int }})</span>
-      <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(girls_total) }}</span>
     </div>
     <hr class="my-1" />
     <div class="d-flex justify-content-between fw-bold">
