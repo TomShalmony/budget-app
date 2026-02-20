@@ -2,11 +2,40 @@ import os
 import math
 import sqlite3
 from datetime import date
-from flask import Flask, render_template, request, redirect, url_for, flash
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from school_calendar import calculate_girls_food, calculate_days_until_25
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+
+# ---------------------------------------------------------------------------
+# Auth — password set via APP_PASSWORD env var.
+# If not set (dev/Codespace), auth is skipped entirely.
+# ---------------------------------------------------------------------------
+APP_PASSWORD = os.environ.get('APP_PASSWORD', '')
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if APP_PASSWORD and not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        if request.form.get('password') == APP_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        return render_template('login.html', error=True)
+    return render_template('login.html', error=False)
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
 DATABASE = os.environ.get('DATABASE_PATH', 'budget.db')
 
 # ---------------------------------------------------------------------------
@@ -176,6 +205,7 @@ with app.app_context():
 # ---------------------------------------------------------------------------
 
 @app.route('/')
+@login_required
 def index():
     conn = get_db()
     income_items         = conn.execute("SELECT * FROM current_expenses WHERE is_income=1 ORDER BY sort_order").fetchall()
@@ -218,6 +248,7 @@ def index():
 
 
 @app.route('/update-balance', methods=['POST'])
+@login_required
 def update_balance():
     for key in ('balance', 'future', 'savings_ignore'):
         val = request.form.get(key, '').strip()
@@ -227,6 +258,7 @@ def update_balance():
 
 
 @app.route('/clear-expense/<int:expense_id>', methods=['POST'])
+@login_required
 def clear_expense(expense_id):
     conn = get_db()
     conn.execute("UPDATE current_expenses SET is_cleared=1 WHERE id=?", (expense_id,))
@@ -236,6 +268,7 @@ def clear_expense(expense_id):
 
 
 @app.route('/unclear-expense/<int:expense_id>', methods=['POST'])
+@login_required
 def unclear_expense(expense_id):
     conn = get_db()
     conn.execute("UPDATE current_expenses SET is_cleared=0 WHERE id=?", (expense_id,))
@@ -245,6 +278,7 @@ def unclear_expense(expense_id):
 
 
 @app.route('/update-expense-amount/<int:expense_id>', methods=['POST'])
+@login_required
 def update_expense_amount(expense_id):
     val = request.form.get('amount', '').strip()
     if val:
@@ -259,7 +293,20 @@ def update_expense_amount(expense_id):
     return redirect(url_for('index'))
 
 
+@app.route('/pending')
+@login_required
+def pending_mobile():
+    conn = get_db()
+    pending_transactions = conn.execute(
+        "SELECT * FROM pending_transactions ORDER BY created_at DESC").fetchall()
+    conn.close()
+    total = sum(r['amount'] for r in pending_transactions)
+    return render_template('pending_mobile.html',
+        pending_transactions=pending_transactions, total=total)
+
+
 @app.route('/add-pending', methods=['POST'])
+@login_required
 def add_pending():
     name   = request.form.get('name', '').strip()
     amount = request.form.get('amount', '').strip()
@@ -276,6 +323,7 @@ def add_pending():
 
 
 @app.route('/delete-pending/<int:pending_id>', methods=['POST'])
+@login_required
 def delete_pending(pending_id):
     conn = get_db()
     conn.execute("DELETE FROM pending_transactions WHERE id=?", (pending_id,))
@@ -285,6 +333,7 @@ def delete_pending(pending_id):
 
 
 @app.route('/month-reset', methods=['GET', 'POST'])
+@login_required
 def month_reset():
     today = date.today()
 
@@ -336,6 +385,7 @@ def month_reset():
 
 
 @app.route('/savings', methods=['GET', 'POST'])
+@login_required
 def savings():
     if request.method == 'POST':
         conn = get_db()
@@ -372,6 +422,7 @@ def savings():
 
 
 @app.route('/settings', methods=['GET', 'POST'])
+@login_required
 def settings():
     if request.method == 'POST':
         conn = get_db()

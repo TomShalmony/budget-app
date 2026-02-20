@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% set title = 'אשראי לא בחשבון' %}
+{% block content %}
+
+<!-- Add new transaction — prominent, top of page -->
+<div class="card border-0 shadow mb-3">
+  <div class="card-body p-3">
+    <h5 class="mb-3"><i class="bi bi-plus-circle-fill text-warning"></i> הוסף חיוב</h5>
+    <form method="POST" action="/add-pending" id="addForm">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">שם / תיאור</label>
+        <input type="text" class="form-control form-control-lg" name="name"
+               id="nameInput"
+               placeholder="למשל: אמזון, זארה..."
+               autocomplete="off" autocorrect="off" autocapitalize="off"
+               autofocus />
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">סכום (€)</label>
+        <div class="input-group input-group-lg" dir="ltr">
+          <span class="input-group-text">€</span>
+          <input type="number" step="0.01" min="0" class="form-control form-control-lg"
+                 name="amount" id="amountInput"
+                 inputmode="decimal"
+                 placeholder="0.00" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-warning btn-lg w-100 py-3">
+        <i class="bi bi-plus-lg"></i> הוסף לרשימה
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Current pending list -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clock-history text-warning"></i> ממתינים לבנק</span>
+    {% if pending_transactions %}
+      <span class="badge bg-warning text-dark fs-6" dir="ltr">
+        -€{{ total | int }}
+      </span>
+    {% else %}
+      <span class="text-muted small">רשימה ריקה</span>
+    {% endif %}
+  </div>
+
+  {% if pending_transactions %}
+    <ul class="list-group list-group-flush">
+      {% for pt in pending_transactions %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold fs-5">{{ pt.name }}</div>
+              <div class="text-danger fw-bold" dir="ltr">-€{{ pt.amount | int if pt.amount == pt.amount|int else "%.2f"|format(pt.amount) }}</div>
+            </div>
+            <form method="POST" action="/delete-pending/{{ pt.id }}">
+              <button type="submit" class="btn btn-success btn-lg px-4"
+                      title="הופיע בבנק">
+                <i class="bi bi-check-lg"></i> הופיע
+              </button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-check-circle fs-1 text-success"></i>
+      <p class="mt-2">אין חיובים ממתינים</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  // After submit, refocus name field for quick back-to-back entry
+  document.getElementById('addForm').addEventListener('submit', function() {
+    setTimeout(() => document.getElementById('nameInput').focus(), 300);
+  });
+</script>
+
+{% endblock %}
