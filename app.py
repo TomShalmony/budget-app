@@ -9,32 +9,38 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 DATABASE = os.environ.get('DATABASE_PATH', 'budget.db')
 
 # ---------------------------------------------------------------------------
-# Expense/income template — mirrors Column C of the Excel file.
-# amount=None means the field is variable (filled in manually or calculated).
+# Template — mirrors Column C of the Excel sheet "מתגלגל"
 # ---------------------------------------------------------------------------
 EXPENSE_TEMPLATE = [
-    # --- Income ---
-    dict(name='משכורת תום',               name_en="Tom's salary",              amount=None,   debit_day=None, is_income=1, sort_order=1),
-    dict(name='משכורת תמרי',              name_en="Tamari's salary",            amount=1200.0, debit_day=None, is_income=1, sort_order=2),
-    dict(name='CAF ילדים',                name_en='CAF children',               amount=150.0,  debit_day=None, is_income=1, sort_order=3),
-    dict(name='CAF דירה',                 name_en='CAF housing',                amount=None,   debit_day=None, is_income=1, sort_order=4),
-    dict(name='לקבל חזרה מביטוח רפואי',  name_en='Medical insurance refund',   amount=None,   debit_day=None, is_income=1, sort_order=5),
-    dict(name='החזר מהעבודה',             name_en='Work reimbursement',         amount=None,   debit_day=None, is_income=1, sort_order=6),
-    # --- Expenses ---
-    dict(name='שכר דירה',                 name_en='Rent',                       amount=1683.0, debit_day=28,   is_income=0, sort_order=7),
-    dict(name='חשבון חשמל',              name_en='Electricity (EDF)',          amount=151.0,  debit_day=16,   is_income=0, sort_order=8),
-    dict(name='נאביגו',                   name_en='Navigo (transit)',            amount=230.0,  debit_day=6,    is_income=0, sort_order=9),
-    dict(name='טלפונים ואינטרנט',         name_en='Phones & internet',          amount=95.0,   debit_day=None, is_income=0, sort_order=10),
-    dict(name='ביטוח דירה',              name_en='Home insurance',             amount=13.0,   debit_day=19,   is_income=0, sort_order=11),
-    dict(name='אוכל בנות',               name_en="Girls' school food",         amount=None,   debit_day=5,    is_income=0, sort_order=12),  # calculated
-    dict(name='עמלת בנק',                name_en='Bank fee',                   amount=22.0,   debit_day=5,    is_income=0, sort_order=13),
-    dict(name='ביטוח בריאות',            name_en='Health insurance (Mutuelle)', amount=210.0,  debit_day=None, is_income=0, sort_order=14),
-    dict(name='משיכת מזומן',             name_en='Cash withdrawal',            amount=None,   debit_day=None, is_income=0, sort_order=15),
+    # הכנסות
+    dict(name='משכורת תום',               name_en="Tom's salary",               amount=None,   debit_day=None, is_income=1, sort_order=1),
+    dict(name='משכורת תמרי',              name_en="Tamari's salary",             amount=1200.0, debit_day=None, is_income=1, sort_order=2),
+    dict(name='CAF ילדים',                name_en='CAF children',                amount=150.0,  debit_day=None, is_income=1, sort_order=3),
+    dict(name='CAF דירה',                 name_en='CAF housing',                 amount=None,   debit_day=None, is_income=1, sort_order=4),
+    dict(name='לקבל חזרה מביטוח רפואי',  name_en='Medical insurance refund',    amount=None,   debit_day=None, is_income=1, sort_order=5),
+    dict(name='החזר מהעבודה',             name_en='Work reimbursement',          amount=None,   debit_day=None, is_income=1, sort_order=6),
+    # הוצאות
+    dict(name='שכר דירה',                 name_en='Rent',                        amount=1683.0, debit_day=28,   is_income=0, sort_order=7),
+    dict(name='חשבון חשמל',              name_en='EDF',                         amount=151.0,  debit_day=16,   is_income=0, sort_order=8),
+    dict(name='נאביגו',                   name_en='Navigo',                      amount=230.0,  debit_day=6,    is_income=0, sort_order=9),
+    dict(name='טלפונים ואינטרנט',         name_en='Phones & internet',           amount=95.0,   debit_day=None, is_income=0, sort_order=10),
+    dict(name='ביטוח דירה',              name_en='Home insurance',              amount=13.0,   debit_day=19,   is_income=0, sort_order=11),
+    dict(name='אוכל בנות',               name_en="Girls' school food",          amount=None,   debit_day=5,    is_income=0, sort_order=12),
+    dict(name='עמלת בנק',                name_en='Bank fee',                    amount=22.0,   debit_day=5,    is_income=0, sort_order=13),
+    dict(name='ביטוח בריאות',            name_en='Mutuelle',                    amount=210.0,  debit_day=None, is_income=0, sort_order=14),
+    dict(name='משיכת מזומן',             name_en='Cash withdrawal',             amount=None,   debit_day=None, is_income=0, sort_order=15),
 ]
 
+# Default savings items — mirrors sheet "כספים בצד"
+SAVINGS_ITEMS = [
+    dict(name='בתוך העו"ש', amount=8700.0,  sort_order=1),
+    dict(name='פק"מ א',     amount=11728.0, sort_order=2),
+    dict(name='פק"מ ב',     amount=13739.0, sort_order=3),
+    dict(name='מניות',      amount=33570.0, sort_order=4),
+]
 
 # ---------------------------------------------------------------------------
-# Database helpers
+# Database
 # ---------------------------------------------------------------------------
 
 def get_db():
@@ -81,12 +87,25 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # כספים בצד — separate savings tracking
+    c.execute('''CREATE TABLE IF NOT EXISTS savings (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        amount     REAL DEFAULT 0,
+        sort_order INTEGER DEFAULT 0
+    )''')
+
     # Default settings
-    for key, value in [('balance', 0.0), ('future', 0.0),
-                       ('savings_ignore', 8700.0), ('girls_money', 1000.0)]:
+    for key, value in [
+        ('balance', 0.0),
+        ('future', 0.0),
+        ('savings_ignore', 8700.0),   # B32 — בעו"ש לא להתייחס (synced with savings table)
+        ('girls_shachar', 500.0),     # B33 partial — שחר
+        ('girls_yaara', 500.0),       # B33 partial — יערה
+    ]:
         c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
 
-    # Populate template if empty
+    # Expense template
     if c.execute("SELECT COUNT(*) FROM expense_template").fetchone()[0] == 0:
         for item in EXPENSE_TEMPLATE:
             c.execute(
@@ -94,6 +113,14 @@ def init_db():
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (item['name'], item['name_en'], item['amount'],
                  item['debit_day'], item['is_income'], item['sort_order'])
+            )
+
+    # Savings
+    if c.execute("SELECT COUNT(*) FROM savings").fetchone()[0] == 0:
+        for item in SAVINGS_ITEMS:
+            c.execute(
+                "INSERT INTO savings (name, amount, sort_order) VALUES (?, ?, ?)",
+                (item['name'], item['amount'], item['sort_order'])
             )
 
     conn.commit()
@@ -114,17 +141,17 @@ def set_setting(key, value):
     conn.close()
 
 
-def compute_remaining(balance, future, savings_ignore, girls_money,
+def compute_remaining(balance, future, savings_ignore, girls_total,
                       income_items, expense_items, pending_transactions):
-    """Replicates the Excel formula: SUM(B2:B10) - SUM(B12:B32)"""
+    """מחשב את הנשאר — מקביל לנוסחת Excel: SUM(B2:B10) - SUM(B12:B32)"""
     income_sum  = sum(r['amount'] for r in income_items  if not r['is_cleared'] and r['amount'])
     expense_sum = sum(r['amount'] for r in expense_items if not r['is_cleared'] and r['amount'])
     pending_sum = sum(r['amount'] for r in pending_transactions)
-    return balance + future + income_sum - expense_sum - pending_sum - savings_ignore - girls_money
+    return balance + future + income_sum - expense_sum - pending_sum - savings_ignore - girls_total
 
 
 # ---------------------------------------------------------------------------
-# Ensure DB exists before first request
+# Startup
 # ---------------------------------------------------------------------------
 
 with app.app_context():
@@ -139,42 +166,40 @@ with app.app_context():
 @app.route('/')
 def index():
     conn = get_db()
-    income_items  = conn.execute(
-        "SELECT * FROM current_expenses WHERE is_income=1 ORDER BY sort_order").fetchall()
-    expense_items = conn.execute(
-        "SELECT * FROM current_expenses WHERE is_income=0 ORDER BY sort_order").fetchall()
-    pending_transactions = conn.execute(
-        "SELECT * FROM pending_transactions ORDER BY created_at DESC").fetchall()
+    income_items         = conn.execute("SELECT * FROM current_expenses WHERE is_income=1 ORDER BY sort_order").fetchall()
+    expense_items        = conn.execute("SELECT * FROM current_expenses WHERE is_income=0 ORDER BY sort_order").fetchall()
+    pending_transactions = conn.execute("SELECT * FROM pending_transactions ORDER BY created_at DESC").fetchall()
     conn.close()
 
     balance        = get_setting('balance')
     future         = get_setting('future')
     savings_ignore = get_setting('savings_ignore')
-    girls_money    = get_setting('girls_money')
+    girls_shachar  = get_setting('girls_shachar')
+    girls_yaara    = get_setting('girls_yaara')
+    girls_total    = girls_shachar + girls_yaara
 
-    remaining = compute_remaining(balance, future, savings_ignore, girls_money,
+    remaining = compute_remaining(balance, future, savings_ignore, girls_total,
                                   income_items, expense_items, pending_transactions)
     days    = calculate_days_until_25()
     per_day = remaining / days if days > 0 else 0
 
-    # Totals for display
     income_pending_total  = sum(r['amount'] for r in income_items  if not r['is_cleared'] and r['amount'])
     expense_pending_total = sum(r['amount'] for r in expense_items if not r['is_cleared'] and r['amount'])
     pending_total         = sum(r['amount'] for r in pending_transactions)
 
     today = date.today()
-    is_reset_due = today.day >= 24  # highlight Reset button near the 25th
 
     return render_template('index.html',
         balance=balance, future=future,
-        savings_ignore=savings_ignore, girls_money=girls_money,
+        savings_ignore=savings_ignore,
+        girls_shachar=girls_shachar, girls_yaara=girls_yaara, girls_total=girls_total,
         income_items=income_items, expense_items=expense_items,
         pending_transactions=pending_transactions,
         income_pending_total=income_pending_total,
         expense_pending_total=expense_pending_total,
         pending_total=pending_total,
         remaining=remaining, days=days, per_day=per_day,
-        today=today, is_reset_due=is_reset_due,
+        today=today, is_reset_due=(today.day >= 24),
     )
 
 
@@ -242,14 +267,11 @@ def month_reset():
         if request.form.get('clear_pending'):
             conn.execute("DELETE FROM pending_transactions")
 
-        templates = conn.execute(
-            "SELECT * FROM expense_template ORDER BY sort_order").fetchall()
-
+        templates = conn.execute("SELECT * FROM expense_template ORDER BY sort_order").fetchall()
         for t in templates:
             amount = t['amount']
             if t['name'] == 'אוכל בנות':
-                amount = food_cost  # override with calculated value
-
+                amount = food_cost
             conn.execute(
                 "INSERT INTO current_expenses "
                 "(template_id, name, name_en, amount, debit_day, is_income, sort_order) "
@@ -261,11 +283,9 @@ def month_reset():
         conn.commit()
         conn.close()
 
-        flash(f'Month reset for {today.strftime("%B %Y")} complete! '
-              f"Girls' food: €{food_cost:.2f}", 'success')
+        flash(f'איפוס חודש {today.strftime("%B %Y")} הושלם! אוכל בנות: €{food_cost:.2f}', 'success')
         return redirect(url_for('index'))
 
-    # GET — show preview before confirming
     food_cost = calculate_girls_food(today.year, today.month)
     conn = get_db()
     templates = conn.execute("SELECT * FROM expense_template ORDER BY sort_order").fetchall()
@@ -275,39 +295,78 @@ def month_reset():
         today=today, food_cost=food_cost, templates=templates)
 
 
+@app.route('/savings', methods=['GET', 'POST'])
+def savings():
+    if request.method == 'POST':
+        conn = get_db()
+
+        # Update savings items
+        for key, value in request.form.items():
+            if key.startswith('saving_'):
+                sid = int(key.split('_')[1])
+                val = value.strip()
+                amount = float(val) if val else 0.0
+                conn.execute("UPDATE savings SET amount=? WHERE id=?", (amount, sid))
+
+                # Sync בתוך העו"ש → savings_ignore (B32)
+                row = conn.execute("SELECT name FROM savings WHERE id=?", (sid,)).fetchone()
+                if row and row['name'] == 'בתוך העו"ש':
+                    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                                 ('savings_ignore', amount))
+
+        # Update girls' savings
+        for key in ('girls_shachar', 'girls_yaara'):
+            val = request.form.get(key, '').strip()
+            if val:
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                             (key, float(val)))
+
+        conn.commit()
+        conn.close()
+        flash('כספים בצד עודכנו!', 'success')
+        return redirect(url_for('savings'))
+
+    conn = get_db()
+    savings_items = conn.execute("SELECT * FROM savings ORDER BY sort_order").fetchall()
+    conn.close()
+
+    savings_total  = sum(s['amount'] for s in savings_items)
+    girls_shachar  = get_setting('girls_shachar')
+    girls_yaara    = get_setting('girls_yaara')
+
+    return render_template('savings.html',
+        savings_items=savings_items,
+        savings_total=savings_total,
+        girls_shachar=girls_shachar,
+        girls_yaara=girls_yaara,
+    )
+
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     if request.method == 'POST':
-        for key in ('savings_ignore', 'girls_money'):
-            val = request.form.get(key, '').strip()
-            if val:
-                set_setting(key, float(val))
-
         conn = get_db()
         for key, value in request.form.items():
             if key.startswith('amount_'):
                 tid = int(key.split('_')[1])
+                val = value.strip()
                 conn.execute("UPDATE expense_template SET amount=? WHERE id=?",
-                             (float(value) if value.strip() else None, tid))
+                             (float(val) if val else None, tid))
             elif key.startswith('day_'):
                 tid = int(key.split('_')[1])
+                val = value.strip()
                 conn.execute("UPDATE expense_template SET debit_day=? WHERE id=?",
-                             (int(value) if value.strip() else None, tid))
+                             (int(val) if val else None, tid))
         conn.commit()
         conn.close()
-
-        flash('Settings saved!', 'success')
+        flash('הגדרות נשמרו!', 'success')
         return redirect(url_for('settings'))
 
     conn = get_db()
     templates = conn.execute("SELECT * FROM expense_template ORDER BY sort_order").fetchall()
     conn.close()
 
-    return render_template('settings.html',
-        templates=templates,
-        savings_ignore=get_setting('savings_ignore'),
-        girls_money=get_setting('girls_money'),
-    )
+    return render_template('settings.html', templates=templates)
 
 
 if __name__ == '__main__':

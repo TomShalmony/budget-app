@@ -1,40 +1,38 @@
 {% extends 'base.html' %}
-{% set title = 'Month Reset' %}
+{% set title = 'איפוס חודש' %}
 {% block content %}
 
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-header section-header">
     <i class="bi bi-arrow-clockwise text-warning"></i>
-    Month Reset — {{ today.strftime('%B %Y') }}
+    איפוס חודש — {{ today.strftime('%B %Y') }}
   </div>
   <div class="card-body">
     <p class="text-muted">
-      This will copy all template amounts into the current month,
-      and calculate girls' school food based on the Zone&nbsp;C school calendar.
+      פעולה זו תעתיק את כל הסכומים מהתבנית לחודש הנוכחי
+      ותחשב אוטומטית את עלות אוכל הבנות לפי לוח השנה הבית ספרי של ורסאי (אזור C).
     </p>
 
-    <!-- Girls food preview -->
+    <!-- תצוגת אוכל בנות -->
     <div class="alert alert-info">
       <i class="bi bi-calculator"></i>
-      <strong>Girls' school food (אוכל בנות)</strong> for {{ today.strftime('%B') }}:
-      <strong>€{{ "%.2f"|format(food_cost) }}</strong>
+      <strong>אוכל בנות</strong> לחודש {{ today.strftime('%B') }}:
+      <strong dir="ltr">€{{ "%.2f"|format(food_cost) }}</strong>
       <div class="small text-muted mt-1">
-        = non-Wednesday school days × 2 meals × €5.10
+        = ימי לימוד שאינם יום רביעי × 2 ארוחות × €5.10
       </div>
     </div>
 
-    <!-- Template preview -->
-    <h6 class="mt-3 mb-2">What will be loaded:</h6>
+    <!-- תצוגת תבנית -->
+    <h6 class="mt-3 mb-2">מה יוטען:</h6>
     <ul class="list-group list-group-flush mb-3">
       {% for t in templates %}
         <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-          <div>
-            <span dir="rtl">{{ t.name }}</span>
-            <span class="text-muted small ms-2">{{ t.name_en }}</span>
-          </div>
-          <span class="fw-bold {% if t.is_income %}text-success{% else %}text-danger{% endif %}">
+          <span>{{ t.name }}</span>
+          <span class="fw-bold {% if t.is_income %}text-success{% else %}text-danger{% endif %}" dir="ltr">
             {% if t.name == 'אוכל בנות' %}
-              {% if t.is_income %}+{% else %}-{% endif %}€{{ "%.2f"|format(food_cost) }} <span class="badge bg-info text-dark">calculated</span>
+              {% if t.is_income %}+{% else %}-{% endif %}€{{ "%.2f"|format(food_cost) }}
+              <span class="badge bg-info text-dark">מחושב</span>
             {% elif t.amount %}
               {% if t.is_income %}+{% else %}-{% endif %}€{{ "%.2f"|format(t.amount) }}
             {% else %}
@@ -45,19 +43,18 @@
       {% endfor %}
     </ul>
 
-    <!-- Confirm form -->
     <form method="POST" action="/month-reset">
       <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" name="clear_pending" id="clearPending" />
         <label class="form-check-label" for="clearPending">
-          Also clear pending debits list (G/H column)
+          נקה גם את רשימת האשראי לא בחשבון
         </label>
       </div>
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-warning flex-grow-1">
-          <i class="bi bi-arrow-clockwise"></i> Confirm Reset
+          <i class="bi bi-arrow-clockwise"></i> אשר איפוס
         </button>
-        <a href="/" class="btn btn-outline-secondary">Cancel</a>
+        <a href="/" class="btn btn-outline-secondary">ביטול</a>
       </div>
     </form>
   </div>
