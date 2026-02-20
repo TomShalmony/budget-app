@@ -2,7 +2,7 @@
 {% block content %}
 
 <!-- ═══════════════════════════════════════════════════
-     כרטיס ממוצע ליום
+     ממוצע ליום
 ════════════════════════════════════════════════════ -->
 <div class="card border-0 shadow mb-3 kpi-card {% if per_day > 50 %}kpi-good{% elif per_day >= 35 %}kpi-warning{% else %}kpi-bad{% endif %}">
   <div class="card-body text-center text-white py-4">
@@ -17,7 +17,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     עדכון עו"ש
+     עדכון עו"ש + בעו"ש לא להתייחס
 ════════════════════════════════════════════════════ -->
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-header section-header">
@@ -25,13 +25,15 @@
   </div>
   <div class="card-body">
     <form method="POST" action="/update-balance">
-      <div class="row g-2 align-items-end">
+
+      <!-- Row 1: עו"ש + עו"ש עתידי -->
+      <div class="row g-2 align-items-end mb-2">
         <div class="col-5">
           <label class="form-label small text-muted mb-1">עו"ש</label>
           <div class="input-group" dir="ltr">
             <span class="input-group-text">€</span>
             <input type="number" step="0.01" class="form-control" name="balance"
-                   value="{{ balance }}" placeholder="0.00" />
+                   value="{{ balance }}" />
           </div>
         </div>
         <div class="col-5">
@@ -39,7 +41,7 @@
           <div class="input-group" dir="ltr">
             <span class="input-group-text">€</span>
             <input type="number" step="0.01" class="form-control" name="future"
-                   value="{{ future }}" placeholder="0.00" />
+                   value="{{ future }}" />
           </div>
         </div>
         <div class="col-2">
@@ -48,6 +50,30 @@
           </button>
         </div>
       </div>
+
+      <!-- Row 2: בעו"ש לא להתייחס with freeze indicator -->
+      <div class="row g-2 align-items-center">
+        <div class="col-5">
+          <label class="form-label small text-muted mb-1">בעו"ש לא להתייחס</label>
+          <div class="input-group" dir="ltr">
+            <span class="input-group-text">€</span>
+            <input type="number" step="0.01" class="form-control" name="savings_ignore"
+                   value="{{ savings_ignore }}" />
+          </div>
+        </div>
+        <div class="col-7 pt-3">
+          <span class="text-muted small">
+            תחילת חודש: <span dir="ltr">€{{ "%.2f"|format(savings_ignore_at_reset) }}</span>
+            {% set diff = savings_ignore - savings_ignore_at_reset %}
+            {% if diff != 0 %}
+              <span class="fw-bold {% if diff > 0 %}text-success{% else %}text-danger{% endif %}" dir="ltr">
+                ({% if diff > 0 %}+{% endif %}€{{ "%.2f"|format(diff) }})
+              </span>
+            {% endif %}
+          </span>
+        </div>
+      </div>
+
     </form>
   </div>
 </div>
@@ -64,28 +90,42 @@
   </div>
   <ul class="list-group list-group-flush">
     {% for item in income_items %}
-      <li class="list-group-item d-flex justify-content-between align-items-center
-                 {% if item.is_cleared %}cleared-item{% endif %}">
-        <div>
-          <span class="item-name">{{ item.name }}</span>
-          {% if item.is_cleared %}
-            <span class="badge bg-secondary me-1">התקבל ✓</span>
-          {% endif %}
+      <li class="list-group-item {% if item.is_cleared %}cleared-item{% endif %}">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span class="item-name">{{ item.name }}</span>
+            {% if item.is_cleared %}
+              <span class="badge bg-secondary me-1">התקבל ✓</span>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold {% if not item.is_cleared %}text-success{% endif %}" dir="ltr">
+              {% if item.amount %}+€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
+            </span>
+            <form method="POST"
+                  action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
+                  class="d-inline">
+              <button type="submit"
+                      class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-success{% endif %}">
+                <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
+              </button>
+            </form>
+          </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-bold {% if not item.is_cleared %}text-success{% endif %}" dir="ltr">
-            {% if item.amount %}+€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
-          </span>
-          <form method="POST"
-                action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
-                class="d-inline">
-            <button type="submit"
-                    class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
-                    title="{{ 'בטל' if item.is_cleared else 'סמן כהתקבל' }}">
-              <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
-            </button>
+
+        <!-- Editable amount for variable/cleared-none income items -->
+        {% if not item.is_cleared %}
+          <form method="POST" action="/update-expense-amount/{{ item.id }}"
+                class="mt-1 d-flex gap-1 align-items-center amount-edit-form">
+            <label class="small text-muted mb-0">עדכן סכום:</label>
+            <div class="input-group input-group-sm" dir="ltr" style="max-width:130px">
+              <span class="input-group-text">€</span>
+              <input type="number" step="0.01" class="form-control"
+                     name="amount" value="{{ item.amount or '' }}" placeholder="סכום" />
+            </div>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
           </form>
-        </div>
+        {% endif %}
       </li>
     {% else %}
       <li class="list-group-item text-center text-muted py-3">
@@ -107,31 +147,45 @@
   </div>
   <ul class="list-group list-group-flush">
     {% for item in expense_items %}
-      <li class="list-group-item d-flex justify-content-between align-items-center
-                 {% if item.is_cleared %}cleared-item{% endif %}">
-        <div>
-          <span class="item-name">{{ item.name }}</span>
-          {% if item.debit_day and not item.is_cleared %}
-            <span class="badge bg-light text-dark border me-1">{{ item.debit_day }} לחודש</span>
-          {% endif %}
-          {% if item.is_cleared %}
-            <span class="badge bg-secondary me-1">חויב ✓</span>
-          {% endif %}
+      <li class="list-group-item {% if item.is_cleared %}cleared-item{% endif %}">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span class="item-name">{{ item.name }}</span>
+            {% if item.debit_day and not item.is_cleared %}
+              <span class="badge bg-light text-dark border me-1">{{ item.debit_day }} לחודש</span>
+            {% endif %}
+            {% if item.is_cleared %}
+              <span class="badge bg-secondary me-1">חויב ✓</span>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold {% if not item.is_cleared %}text-danger{% endif %}" dir="ltr">
+              {% if item.amount %}-€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
+            </span>
+            <form method="POST"
+                  action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
+                  class="d-inline">
+              <button type="submit"
+                      class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-danger{% endif %}">
+                <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
+              </button>
+            </form>
+          </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-bold {% if not item.is_cleared %}text-danger{% endif %}" dir="ltr">
-            {% if item.amount %}-€{{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}
-          </span>
-          <form method="POST"
-                action="{{ url_for('unclear_expense', expense_id=item.id) if item.is_cleared else url_for('clear_expense', expense_id=item.id) }}"
-                class="d-inline">
-            <button type="submit"
-                    class="btn btn-sm {% if item.is_cleared %}btn-outline-secondary{% else %}btn-outline-danger{% endif %}"
-                    title="{{ 'בטל' if item.is_cleared else 'סמן כחויב בבנק' }}">
-              <i class="bi {% if item.is_cleared %}bi-x-circle{% else %}bi-check-circle{% endif %}"></i>
-            </button>
+
+        <!-- Editable amount for non-cleared expenses (partial charges, variable items) -->
+        {% if not item.is_cleared %}
+          <form method="POST" action="/update-expense-amount/{{ item.id }}"
+                class="mt-1 d-flex gap-1 align-items-center amount-edit-form">
+            <label class="small text-muted mb-0">עדכן סכום:</label>
+            <div class="input-group input-group-sm" dir="ltr" style="max-width:130px">
+              <span class="input-group-text">€</span>
+              <input type="number" step="0.01" class="form-control"
+                     name="amount" value="{{ item.amount or '' }}" placeholder="סכום" />
+            </div>
+            <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
           </form>
-        </div>
+        {% endif %}
       </li>
     {% else %}
       <li class="list-group-item text-center text-muted py-3">
@@ -160,8 +214,7 @@
           <div class="d-flex align-items-center gap-2">
             <span class="fw-bold text-danger" dir="ltr">-€{{ "%.2f"|format(pt.amount) }}</span>
             <form method="POST" action="/delete-pending/{{ pt.id }}" class="d-inline">
-              <button type="submit" class="btn btn-sm btn-outline-success"
-                      title="הופיע בבנק — הסר">
+              <button type="submit" class="btn btn-sm btn-outline-success" title="הופיע בבנק — הסר">
                 <i class="bi bi-check-circle"></i>
               </button>
             </form>
@@ -174,8 +227,7 @@
   <div class="card-body {% if pending_transactions %}border-top{% endif %} pt-2">
     <form method="POST" action="/add-pending" class="row g-2 align-items-center">
       <div class="col-5">
-        <input type="text" class="form-control form-control-sm" name="name"
-               placeholder="למשל: אמזון" />
+        <input type="text" class="form-control form-control-sm" name="name" placeholder="למשל: אמזון" />
       </div>
       <div class="col-4">
         <div class="input-group input-group-sm" dir="ltr">
@@ -217,10 +269,6 @@
     <div class="d-flex justify-content-between small">
       <span class="text-muted">− בעו"ש לא להתייחס</span>
       <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(savings_ignore) }}</span>
-    </div>
-    <div class="d-flex justify-content-between small">
-      <span class="text-muted">− של הבנות (שחר + יערה)</span>
-      <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(girls_total) }}</span>
     </div>
     <hr class="my-1" />
     <div class="d-flex justify-content-between fw-bold">

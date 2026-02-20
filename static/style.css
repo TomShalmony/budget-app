@@ -57,6 +57,11 @@
 /* ── Padding for bottom nav ──────────────────── */
 body { padding-bottom: 70px; }
 
+/* ── Inline amount edit forms ────────────────── */
+.amount-edit-form { opacity: 0.6; transition: opacity 0.15s; }
+.amount-edit-form:hover,
+.amount-edit-form:focus-within { opacity: 1; }
+
 /* ── Mobile tweaks ───────────────────────────── */
 @media (max-width: 400px) {
   .kpi-number    { font-size: 2.8rem; }
