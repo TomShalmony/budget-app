@@ -1,4 +1,5 @@
 import os
+import math
 import sqlite3
 from datetime import date
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -150,14 +151,16 @@ def set_setting(key, value):
     conn.close()
 
 
-def compute_remaining(balance, future, savings_ignore,
+def compute_remaining(balance, future, savings_ignore, girls_total,
                       income_items, expense_items, pending_transactions):
     """Replicates Excel formula: SUM(B2:B10) - SUM(B12:B32)
-    Girls' money is included within savings_ignore (not tracked separately in formula)."""
-    income_sum  = sum(r['amount'] for r in income_items  if not r['is_cleared'] and r['amount'])
-    expense_sum = sum(r['amount'] for r in expense_items if not r['is_cleared'] and r['amount'])
-    pending_sum = sum(r['amount'] for r in pending_transactions)
-    return balance + future + income_sum - expense_sum - pending_sum - savings_ignore
+    Conservative rounding: income floored, expenses ceiled, result floored.
+    Girls' money deducted separately from savings_ignore."""
+    income_sum  = sum(math.floor(r['amount']) for r in income_items  if not r['is_cleared'] and r['amount'])
+    expense_sum = sum(math.ceil(r['amount'])  for r in expense_items if not r['is_cleared'] and r['amount'])
+    pending_sum = sum(math.ceil(r['amount'])  for r in pending_transactions)
+    raw = balance + future + income_sum - expense_sum - pending_sum - savings_ignore - girls_total
+    return math.floor(raw)
 
 
 # ---------------------------------------------------------------------------
@@ -180,15 +183,18 @@ def index():
     pending_transactions = conn.execute("SELECT * FROM pending_transactions ORDER BY created_at DESC").fetchall()
     conn.close()
 
-    balance                = get_setting('balance')
-    future                 = get_setting('future')
-    savings_ignore         = get_setting('savings_ignore')
+    balance                 = get_setting('balance')
+    future                  = get_setting('future')
+    savings_ignore          = get_setting('savings_ignore')
     savings_ignore_at_reset = get_setting('savings_ignore_at_reset')
+    girls_shachar           = get_setting('girls_shachar')
+    girls_yaara             = get_setting('girls_yaara')
+    girls_total             = girls_shachar + girls_yaara
 
-    remaining = compute_remaining(balance, future, savings_ignore,
+    remaining = compute_remaining(balance, future, savings_ignore, girls_total,
                                   income_items, expense_items, pending_transactions)
     days    = calculate_days_until_25()
-    per_day = remaining / days if days > 0 else 0
+    per_day = math.floor(remaining / days) if days > 0 else 0
 
     income_pending_total  = sum(r['amount'] for r in income_items  if not r['is_cleared'] and r['amount'])
     expense_pending_total = sum(r['amount'] for r in expense_items if not r['is_cleared'] and r['amount'])
@@ -200,6 +206,7 @@ def index():
         balance=balance, future=future,
         savings_ignore=savings_ignore,
         savings_ignore_at_reset=savings_ignore_at_reset,
+        girls_shachar=girls_shachar, girls_yaara=girls_yaara, girls_total=girls_total,
         income_items=income_items, expense_items=expense_items,
         pending_transactions=pending_transactions,
         income_pending_total=income_pending_total,

@@ -62,6 +62,10 @@ body { padding-bottom: 70px; }
 .amount-edit-form:hover,
 .amount-edit-form:focus-within { opacity: 1; }
 
+/* ── Items with no amount — needs attention ──── */
+.amount-edit-form-highlight { opacity: 1; }
+.amount-edit-form-highlight label { color: #fd7e14 !important; font-weight: 600; }
+
 /* ── Mobile tweaks ───────────────────────────── */
 @media (max-width: 400px) {
   .kpi-number    { font-size: 2.8rem; }

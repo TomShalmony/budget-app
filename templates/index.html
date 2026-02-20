@@ -113,17 +113,17 @@
           </div>
         </div>
 
-        <!-- Editable amount for variable/cleared-none income items -->
+        <!-- Editable amount -->
         {% if not item.is_cleared %}
           <form method="POST" action="/update-expense-amount/{{ item.id }}"
-                class="mt-1 d-flex gap-1 align-items-center amount-edit-form">
-            <label class="small text-muted mb-0">עדכן סכום:</label>
+                class="mt-1 d-flex gap-1 align-items-center {% if not item.amount %}amount-edit-form-highlight{% else %}amount-edit-form{% endif %}">
+            <label class="small text-muted mb-0">{% if not item.amount %}הכנס סכום:{% else %}עדכן:{% endif %}</label>
             <div class="input-group input-group-sm" dir="ltr" style="max-width:130px">
               <span class="input-group-text">€</span>
               <input type="number" step="0.01" class="form-control"
                      name="amount" value="{{ item.amount or '' }}" placeholder="סכום" />
             </div>
-            <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
+            <button type="submit" class="btn btn-sm {% if not item.amount %}btn-warning{% else %}btn-outline-secondary{% endif %}">OK</button>
           </form>
         {% endif %}
       </li>
@@ -173,17 +173,17 @@
           </div>
         </div>
 
-        <!-- Editable amount for non-cleared expenses (partial charges, variable items) -->
+        <!-- Editable amount (partial charges, variable items) -->
         {% if not item.is_cleared %}
           <form method="POST" action="/update-expense-amount/{{ item.id }}"
-                class="mt-1 d-flex gap-1 align-items-center amount-edit-form">
-            <label class="small text-muted mb-0">עדכן סכום:</label>
+                class="mt-1 d-flex gap-1 align-items-center {% if not item.amount %}amount-edit-form-highlight{% else %}amount-edit-form{% endif %}">
+            <label class="small text-muted mb-0">{% if not item.amount %}הכנס סכום:{% else %}עדכן:{% endif %}</label>
             <div class="input-group input-group-sm" dir="ltr" style="max-width:130px">
               <span class="input-group-text">€</span>
               <input type="number" step="0.01" class="form-control"
                      name="amount" value="{{ item.amount or '' }}" placeholder="סכום" />
             </div>
-            <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
+            <button type="submit" class="btn btn-sm {% if not item.amount %}btn-warning{% else %}btn-outline-secondary{% endif %}">OK</button>
           </form>
         {% endif %}
       </li>
@@ -269,6 +269,10 @@
     <div class="d-flex justify-content-between small">
       <span class="text-muted">− בעו"ש לא להתייחס</span>
       <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(savings_ignore) }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+      <span class="text-muted">− של הבנות (שחר €{{ girls_shachar|int }} + יערה €{{ girls_yaara|int }})</span>
+      <span class="text-secondary" dir="ltr">-€{{ "%.2f"|format(girls_total) }}</span>
     </div>
     <hr class="my-1" />
     <div class="d-flex justify-content-between fw-bold">
