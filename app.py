@@ -430,19 +430,20 @@ def month_reset():
             conn.execute("DELETE FROM pending_transactions")
 
         # Freeze savings_ignore at the time of reset
-        current_savings_ignore = get_setting('savings_ignore')
-        set_setting('savings_ignore_at_reset', current_savings_ignore)
+        row = conn.execute("SELECT value FROM settings WHERE key='savings_ignore'").fetchone()
+        current_savings_ignore = float(row['value']) if row else 0.0
+        conn.upsert_setting('savings_ignore_at_reset', current_savings_ignore)
 
         templates = conn.execute("SELECT * FROM expense_template ORDER BY sort_order").fetchall()
         for t in templates:
-            amount = t['amount']
             if t['name'] == 'אוכל בנות':
                 amount = food_cost
-            elif t['is_variable']:
-                # Use manually entered value from reset form
-                val = request.form.get(f'var_{t["id"]}', '').strip()
-                if val:
-                    amount = float(val)
+            else:
+                val = request.form.get(f'amount_{t["id"]}', '').strip()
+                amount = float(val) if val else t['amount']
+                # Save back to template as new default
+                conn.execute("UPDATE expense_template SET amount=? WHERE id=?",
+                             (amount, t['id']))
 
             conn.execute(
                 "INSERT INTO current_expenses "
