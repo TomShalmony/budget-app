@@ -20,10 +20,9 @@ class DB:
 
     def __init__(self):
         if USE_POSTGRES:
-            import psycopg2
-            import psycopg2.extras
-            self._conn   = psycopg2.connect(DATABASE_URL,
-                               cursor_factory=psycopg2.extras.RealDictCursor)
+            import psycopg
+            from psycopg.rows import dict_row
+            self._conn   = psycopg.connect(DATABASE_URL, row_factory=dict_row)
             self._cursor = self._conn.cursor()
         else:
             self._conn   = sqlite3.connect(DATABASE_PATH)
